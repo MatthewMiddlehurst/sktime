@@ -69,7 +69,16 @@ class Catch22ForestClassifier(BaseClassifier):
 
     """
 
-    def __init__(self, n_estimators=100, n_jobs=None, random_state=None):
+    # Capability tags
+    capabilities = {
+        "multivariate": True,
+        "unequal_length": False,
+        "missing_values": False,
+        "train_estimate": False,
+        "contractable": False,
+    }
+
+    def __init__(self, n_estimators=100, n_jobs=1, random_state=None):
         self.n_estimators = n_estimators
         self.n_jobs = n_jobs
         self.random_state = random_state

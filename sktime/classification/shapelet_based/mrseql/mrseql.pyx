@@ -226,7 +226,9 @@ class MrSEQLClassifier(BaseClassifier):
     capabilities = {
         "multivariate": False,
         "unequal_length": False,
-        "missing_values": False
+        "missing_values": False,
+        "train_estimate": False,
+        "contractable": False,
     }
 
     def __init__(self, seql_mode='fs', symrep=('sax'), custom_config=None):

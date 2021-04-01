@@ -3,7 +3,7 @@
 """
 
 __author__ = "Matthew Middlehurst"
-__all__ = ["ROCKETClassifier"]
+__all__ = ["Arsenal"]
 
 import numpy as np
 from sklearn.linear_model import RidgeClassifierCV
@@ -17,15 +17,17 @@ from sktime.utils.validation.panel import check_X
 from sktime.utils.validation.panel import check_X_y
 
 
-class ROCKETClassifier(BaseClassifier):
+class Arsenal(BaseClassifier):
     """
-    Classifier wrapped for the ROCKET transformer using RidgeClassifierCV as the
-    base classifier.
+    Classifier wrapped for ensemble of ROCKET transformers using RidgeClassifierCV as
+    the base classifiers. Allows for generation of probabilities at the expense of
+    scalability.
 
     Parameters
     ----------
     num_kernels             : int, number of kernels for ROCKET transform
-    (default=10,000)
+    (default=2,000)
+    ensemble_size           : int, size of the ensemble (default=25)
     n_jobs                  : int, optional (default=1)
     The number of jobs to run in parallel for both `fit` and `predict`.
     ``-1`` means using all processors.
@@ -34,7 +36,9 @@ class ROCKETClassifier(BaseClassifier):
 
     Attributes
     ----------
-    classifier              : ROCKET classifier
+    classifiers             : array of ROCKET classifiers
+    weights                 : weight of each classifier in the ensemble
+    weight_sum              : sum of all weights
     n_classes               : extracted from the data
 
     Notes
@@ -50,7 +54,7 @@ class ROCKETClassifier(BaseClassifier):
 
     Java version
     https://github.com/uea-machine-learning/tsml/blob/master/src/main/java/
-    tsml/classifiers/shapelet_based/ROCKETClassifier.java
+    tsml/classifiers/shapelet_based/Arsenal.java
 
     """
 
@@ -65,26 +69,28 @@ class ROCKETClassifier(BaseClassifier):
 
     def __init__(
         self,
-        num_kernels=10000,
+        num_kernels=2000,
+        ensemble_size=25,
         n_jobs=1,
         random_state=None,
     ):
         self.num_kernels = num_kernels
+        self.ensemble_size = ensemble_size
         self.n_jobs = n_jobs
         self.random_state = random_state
 
-        self.classifier = None
+        self.classifiers = []
 
         self.n_classes = 0
         self.classes_ = []
         self.class_dictionary = {}
 
-        super(ROCKETClassifier, self).__init__()
+        super(Arsenal, self).__init__()
 
     def fit(self, X, y):
         """
-        Build a pipeline containing the ROCKET transformer and RidgeClassifierCV
-        classifier.
+        Build an ensemble of pipelines containing the ROCKET transformer and
+        RidgeClassifierCV classifier.
 
         Parameters
         ----------
@@ -103,31 +109,39 @@ class ROCKETClassifier(BaseClassifier):
         for index, classVal in enumerate(self.classes_):
             self.class_dictionary[classVal] = index
 
-        self.classifier = rocket_pipeline = make_pipeline(
-            Rocket(
-                num_kernels=self.num_kernels,
-                random_state=self.random_state,
-                n_jobs=self.n_jobs,
-            ),
-            RidgeClassifierCV(alphas=np.logspace(-3, 3, 10), normalize=True),
-        )
-        rocket_pipeline.fit(X, y)
+        for i in range(self.ensemble_size):
+            rocket_pipeline = make_pipeline(
+                Rocket(
+                    num_kernels=self.num_kernels,
+                    random_state=self.random_state,
+                    n_jobs=self.n_jobs,
+                ),
+                RidgeClassifierCV(alphas=np.logspace(-3, 3, 10), normalize=True),
+            )
+            rocket_pipeline.fit(X, y)
+            self.classifiers.append(rocket_pipeline)
 
         self._is_fitted = True
         return self
 
     def predict(self, X):
-        self.check_is_fitted()
-        X = check_X(X)
-        return self.classifier.predict(X)
+        rng = check_random_state(self.random_state)
+        return np.array(
+            [
+                self.classes_[int(rng.choice(np.flatnonzero(prob == prob.max())))]
+                for prob in self.predict_proba(X)
+            ]
+        )
 
     def predict_proba(self, X):
         self.check_is_fitted()
         X = check_X(X)
 
-        dists = np.zeros((X.shape[0], self.n_classes))
-        preds = self.classifier.predict(X)
-        for i in range(0, X.shape[0]):
-            dists[i, np.where(self.classes_ == preds[i])] = 1
+        sums = np.zeros((X.shape[0], self.n_classes))
 
-        return dists
+        for n, clf in enumerate(self.classifiers):
+            preds = clf.predict(X)
+            for i in range(0, X.shape[0]):
+                sums[i, self.class_dictionary[preds[i]]] += 1
+
+        return sums / (np.ones(self.n_classes) * self.ensemble_size)
