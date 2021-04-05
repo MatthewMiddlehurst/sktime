@@ -102,6 +102,7 @@ class DrCIF(BaseClassifier):
         n_estimators=500,
         n_intervals=None,
         att_subsample_size=10,
+        save_transform_for_estimate=False,
         n_jobs=1,
         random_state=None,
     ):
@@ -113,6 +114,7 @@ class DrCIF(BaseClassifier):
         self.max_interval = max_interval
         self.att_subsample_size = att_subsample_size
 
+        self.save_transform_for_estimate = save_transform_for_estimate
         self.random_state = random_state
         self.n_jobs = n_jobs
 
@@ -315,6 +317,9 @@ class DrCIF(BaseClassifier):
             np.ones(self.n_classes) * self.n_estimators
         )
         return output
+
+    def _get_train_probs(self, X):
+        n=1
 
     def _fit_estimator(self, X, X_p, X_d, y, idx):
         c22 = Catch22()

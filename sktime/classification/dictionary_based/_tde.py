@@ -138,10 +138,10 @@ class TemporalDictionaryEnsemble(BaseClassifier):
         self.max_ensemble_size = max_ensemble_size
         self.max_win_len_prop = max_win_len_prop
         self.min_window = min_window
-        self.time_limit_in_minutes = time_limit_in_minutes
         self.randomly_selected_params = randomly_selected_params
         self.bigrams = bigrams
 
+        self.time_limit_in_minutes = time_limit_in_minutes
         self.n_jobs = n_jobs
         self.random_state = random_state
 
@@ -247,7 +247,7 @@ class TemporalDictionaryEnsemble(BaseClassifier):
                 )
             else:
                 scaler = preprocessing.StandardScaler().fit(self.prev_parameters_x)
-                gp_train = scaler.transform(self.prev_parameters_x,)
+                gp_train = scaler.transform(self.prev_parameters_x)
                 gp_test = scaler.transform(possible_parameters)
                 gp = KernelRidge(kernel="poly", degree=2)
                 gp.fit(gp_train, self.prev_parameters_y)
@@ -346,35 +346,58 @@ class TemporalDictionaryEnsemble(BaseClassifier):
 
         return possible_parameters
 
-    def _get_train_probs(self, X):
+    def _get_train_probs(self, X, train_estimate_method="loocv"):
         num_inst = X.shape[0]
         results = np.zeros((num_inst, self.n_classes))
-        for i in range(num_inst):
-            divisor = 0
-            sums = np.zeros(self.n_classes)
 
-            cls_idx = []
-            for n, clf in enumerate(self.classifiers):
-                idx = np.where(clf.subsample == i)
-                if len(idx[0]) > 0:
-                    cls_idx.append([n, idx[0][0]])
+        if train_estimate_method.lower() == "loocv":
+            for i in range(num_inst):
+                divisor = 0
+                sums = np.zeros(self.n_classes)
 
-            preds = Parallel(n_jobs=self.n_jobs)(
-                delayed(self.classifiers[cls[0]]._train_predict)(
-                    cls[1],
+                clf_idx = []
+                for n, clf in enumerate(self.classifiers):
+                    idx = np.where(clf.subsample == i)
+                    if len(idx[0]) > 0:
+                        clf_idx.append([n, idx[0][0]])
+
+                preds = Parallel(n_jobs=self.n_jobs)(
+                    delayed(self.classifiers[cls[0]]._train_predict)(
+                        cls[1],
+                    )
+                    for cls in clf_idx
                 )
-                for cls in cls_idx
-            )
 
-            for n, pred in enumerate(preds):
-                sums[self.class_dictionary.get(pred, -1)] += self.weights[cls_idx[n][0]]
-                divisor += self.weights[cls_idx[n][0]]
+                for n, pred in enumerate(preds):
+                    sums[self.class_dictionary.get(pred, -1)] += self.weights[
+                        clf_idx[n][0]]
+                    divisor += self.weights[clf_idx[n][0]]
 
-            results[i] = (
-                np.ones(self.n_classes) * (1 / self.n_classes)
-                if divisor == 0
-                else sums / (np.ones(self.n_classes) * divisor)
-            )
+                results[i] = (
+                    np.ones(self.n_classes) * (1 / self.n_classes)
+                    if divisor == 0
+                    else sums / (np.ones(self.n_classes) * divisor)
+                )
+        elif train_estimate_method.lower() == "oob":
+            #todo test and fix
+            indices = range(num_inst)
+            divisors = np.zeros(self.n_estimators)
+            results = np.zeros((num_inst, self.n_classes))
+
+            for i, clf in enumerate(self.classifiers):
+                oob = [n for n in indices if n not in clf.subsample]
+                X_oob = X[oob]
+                preds = clf.predict(X_oob)
+
+                for n, pred in enumerate(preds):
+                    results[oob[n], self.class_dictionary.get(pred, -1)] += \
+                        self.weights[i]
+                    divisors[oob[n]] += self.weights[i]
+
+            results = results / divisors
+        else:
+            raise ValueError("Invalid train_estimate_method. "
+                             "Available options: loocv oob")
 
         return results
 
