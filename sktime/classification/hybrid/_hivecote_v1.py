@@ -80,7 +80,7 @@ class HIVECOTEV1(BaseClassifier):
         random_state=None,
     ):
         if stc_params is None:
-            stc_params = {"time_contract_in_mins": 60}
+            stc_params = {"transform_contract_in_mins": 60}
         if tsf_params is None:
             tsf_params = {}
         if rise_params is None:

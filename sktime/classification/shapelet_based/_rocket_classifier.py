@@ -8,7 +8,6 @@ __all__ = ["ROCKETClassifier"]
 import numpy as np
 from sklearn.linear_model import RidgeClassifierCV
 from sklearn.pipeline import make_pipeline
-from sklearn.utils import check_random_state
 from sklearn.utils.multiclass import class_distribution
 
 from sktime.classification.base import BaseClassifier

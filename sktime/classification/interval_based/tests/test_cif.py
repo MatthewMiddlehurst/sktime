@@ -13,7 +13,7 @@ def test_cif_on_gunpoint():
     indices = np.random.RandomState(0).permutation(10)
 
     # train CIF
-    cif = CanonicalIntervalForest(n_estimators=100, random_state=0)
+    cif = CanonicalIntervalForest(n_estimators=20, random_state=0)
     cif.fit(X_train.iloc[indices], y_train[indices])
 
     # assert probabilities are the same
@@ -28,7 +28,7 @@ def test_cif_on_power_demand():
     indices = np.random.RandomState(0).permutation(100)
 
     # train CIF
-    cif = CanonicalIntervalForest(n_estimators=100, random_state=0)
+    cif = CanonicalIntervalForest(n_estimators=20, random_state=0)
     cif.fit(X_train, y_train)
 
     score = cif.score(X_test.iloc[indices], y_test[indices])
@@ -42,7 +42,7 @@ def test_cif_on_basic_motions():
     indices = np.random.RandomState(0).permutation(20)
 
     # train CIF
-    cif = CanonicalIntervalForest(n_estimators=100, random_state=0)
+    cif = CanonicalIntervalForest(n_estimators=20, random_state=0)
     cif.fit(X_train.iloc[indices], y_train[indices])
 
     # assert probabilities are the same
@@ -53,128 +53,128 @@ def test_cif_on_basic_motions():
 cif_gunpoint_probas = np.array(
     [
         [
-            0.14,
-            0.86,
+            0.0,
+            1.0,
         ],
         [
-            0.44,
-            0.56,
+            0.65,
+            0.35,
         ],
         [
-            0.47,
-            0.53,
+            0.6,
+            0.4,
         ],
         [
-            0.39,
-            0.61,
+            0.3,
+            0.7,
         ],
         [
-            0.13,
-            0.87,
+            0.05,
+            0.95,
         ],
         [
-            0.56,
-            0.44,
-        ],
-        [
-            0.28,
-            0.72,
-        ],
-        [
-            0.53,
-            0.47,
-        ],
-        [
-            0.48,
-            0.52,
+            0.7,
+            0.3,
         ],
         [
             0.1,
             0.9,
         ],
-    ]
-)
-cif_basic_motions_probas = np.array(
-    [
         [
-            0.93,
-            0.07,
-        ],
-        [
-            0.1,
-            0.9,
+            0.7,
+            0.3,
         ],
         [
             0.8,
             0.2,
         ],
         [
-            0.08,
-            0.92,
+            0.2,
+            0.8,
         ],
+    ]
+)
+cif_basic_motions_probas = np.array(
+    [
         [
-            0.94,
-            0.06,
-        ],
-        [
-            0.96,
-            0.04,
-        ],
-        [
-            0.08,
-            0.92,
-        ],
-        [
-            0.99,
-            0.01,
-        ],
-        [
-            0.11,
-            0.89,
-        ],
-        [
-            0.09,
-            0.91,
+            1.0,
+            0.0,
         ],
         [
             0.0,
             1.0,
         ],
         [
-            0.97,
-            0.03,
+            0.9,
+            0.1,
         ],
         [
-            0.04,
-            0.96,
+            0.0,
+            1.0,
         ],
         [
-            0.13,
-            0.87,
+            0.9,
+            0.1,
         ],
         [
-            0.87,
-            0.13,
+            0.95,
+            0.05,
         ],
         [
-            0.93,
-            0.07,
+            0.0,
+            1.0,
         ],
         [
-            0.08,
-            0.92,
+            1.0,
+            0.0,
         ],
         [
-            0.07,
-            0.93,
+            0.05,
+            0.95,
         ],
         [
-            0.88,
-            0.12,
+            0.0,
+            1.0,
         ],
         [
-            0.98,
-            0.02,
+            0.0,
+            1.0,
+        ],
+        [
+            0.9,
+            0.1,
+        ],
+        [
+            0.0,
+            1.0,
+        ],
+        [
+            0.05,
+            0.95,
+        ],
+        [
+            0.95,
+            0.05,
+        ],
+        [
+            0.9,
+            0.1,
+        ],
+        [
+            0.0,
+            1.0,
+        ],
+        [
+            0.0,
+            1.0,
+        ],
+        [
+            0.95,
+            0.05,
+        ],
+        [
+            1.0,
+            0.0,
         ],
     ]
 )
@@ -196,7 +196,7 @@ cif_basic_motions_probas = np.array(
 #     X_test, y_test = load_gunpoint(split="test", return_X_y=True)
 #     indices = np.random.RandomState(0).permutation(10)
 #
-#     cif_u = CanonicalIntervalForest(n_estimators=100, random_state=0)
+#     cif_u = CanonicalIntervalForest(n_estimators=20, random_state=0)
 #
 #     cif_u.fit(X_train.iloc[indices], y_train[indices])
 #     probas = cif_u.predict_proba(X_test.iloc[indices])
@@ -206,7 +206,7 @@ cif_basic_motions_probas = np.array(
 #     X_test, y_test = load_basic_motions(split="test", return_X_y=True)
 #     indices = np.random.RandomState(0).permutation(20)
 #
-#     cif_m = CanonicalIntervalForest(n_estimators=100, random_state=0)
+#     cif_m = CanonicalIntervalForest(n_estimators=20, random_state=0)
 #
 #     cif_m.fit(X_train.iloc[indices], y_train[indices])
 #     probas = cif_m.predict_proba(X_test.iloc[indices])

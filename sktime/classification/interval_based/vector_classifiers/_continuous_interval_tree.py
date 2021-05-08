@@ -11,8 +11,6 @@ import sys
 
 import numpy as np
 import scipy.stats
-from numba import njit
-from numba.typed import List
 
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_X_y, check_random_state
@@ -20,7 +18,12 @@ from sklearn.utils.multiclass import class_distribution
 
 from sktime.exceptions import NotFittedError
 from sktime.utils.slope_and_trend import _slope
+from sktime.utils.validation._dependencies import _check_soft_dependencies
 from sktime.utils.validation.panel import check_X
+
+_check_soft_dependencies("numba")
+from numba import njit # noqa: E402
+from numba.typed import List # noqa: E402
 
 
 class ContinuousIntervalTree(BaseEstimator):
@@ -200,12 +203,12 @@ class TreeNode:
                     self.best_split = att
                     self.best_threshold = threshold
                     self.best_gain = info_gain
-                    self.best_margin = 0
+                    self.best_margin = -1
                     best_splits = splits
                     best_distributions_cls = distributions_cls
                     best_distributions = distributions
                     best_entropies = entropies
-                elif info_gain == self.best_gain and info_gain > 0:
+                elif info_gain == self.best_gain and info_gain > 0.0000001:
                     margin = self.margin_gain(X, att, threshold)
                     if self.best_margin == -1:
                         self.best_margin = self.margin_gain(X, self.best_split, self.best_threshold)

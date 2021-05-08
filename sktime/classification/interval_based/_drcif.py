@@ -15,14 +15,11 @@ from sklearn.utils.multiclass import class_distribution
 
 from sktime.classification.interval_based.vector_classifiers import \
     ContinuousIntervalTree
-from sktime.classification.interval_based.vector_classifiers._continuous_interval_tree import \
-    _drcif_feature
-from sktime.utils.validation._dependencies import _check_soft_dependencies
+from sktime.classification.interval_based.vector_classifiers._continuous_interval_tree \
+    import _drcif_feature
+from sktime.transformations.panel.catch22 import Catch22
 from sktime.utils.validation.panel import check_X, check_X_y
 from sktime.classification.base import BaseClassifier
-
-_check_soft_dependencies("catch22")
-from sktime.transformations.panel.catch22_features import Catch22  # noqa: E402
 
 
 class DrCIF(BaseClassifier):
@@ -106,7 +103,7 @@ class DrCIF(BaseClassifier):
         n_jobs=1,
         random_state=None,
     ):
-        self.base_estimator = ContinuousIntervalTree(random_state=random_state)
+        self.base_estimator = ContinuousIntervalTree()
 
         self.n_estimators = n_estimators
         self.n_intervals = n_intervals
@@ -324,7 +321,7 @@ class DrCIF(BaseClassifier):
     def _fit_estimator(self, X, X_p, X_d, y, idx):
         c22 = Catch22()
         T = [X, X_p, X_d]
-        rs = 5465 if self.random_state == 0 else self.random_state
+        rs = 255 if self.random_state == 0 else self.random_state
         rs = None if self.random_state is None else rs * 37 * (idx + 1)
         rng = check_random_state(rs)
 
