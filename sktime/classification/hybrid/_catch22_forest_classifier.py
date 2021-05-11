@@ -55,7 +55,6 @@ class Catch22ForestClassifier(BaseClassifier):
     Parameters
     ----------
     n_estimators            : int, number of trees in the random forest
-    bootstrap               : bool, if true draw samples with replacement
     n_jobs                  : int or None, number of jobs to run in parallel
     random_state            : int or None, seed for random, integer,
     optional (default to no seed)
@@ -75,8 +74,14 @@ class Catch22ForestClassifier(BaseClassifier):
         "contractable": False,
     }
 
-    def __init__(self, n_estimators=100, n_jobs=1, random_state=None):
+    def __init__(
+        self, n_estimators=200,
+        outlier_norm=False,
+        n_jobs=1,
+        random_state=None,
+    ):
         self.n_estimators = n_estimators
+        self.outlier_norm = outlier_norm
         self.n_jobs = n_jobs
         self.random_state = random_state
 
@@ -102,7 +107,7 @@ class Catch22ForestClassifier(BaseClassifier):
         X = check_X(X, enforce_univariate=False, coerce_to_numpy=True)
         self.classes_ = class_distribution(np.asarray(y).reshape(-1, 1))[0][0]
 
-        c22 = Catch22()
+        c22 = Catch22(outlier_norm=self.outlier_norm)
         c22_list = c22.fit_transform(X)
 
         self.classifier = RandomForestClassifier(
@@ -121,7 +126,7 @@ class Catch22ForestClassifier(BaseClassifier):
         self.check_is_fitted()
         X = check_X(X, enforce_univariate=False, coerce_to_numpy=True)
 
-        c22 = Catch22()
+        c22 = Catch22(outlier_norm=self.outlier_norm)
         c22_list = c22.fit_transform(X)
 
         X_c22 = np.nan_to_num(np.array(c22_list, dtype=np.float32), False, 0, 0, 0)
@@ -131,7 +136,7 @@ class Catch22ForestClassifier(BaseClassifier):
         self.check_is_fitted()
         X = check_X(X, enforce_univariate=False, coerce_to_numpy=True)
 
-        c22 = Catch22()
+        c22 = Catch22(outlier_norm=self.outlier_norm)
         c22_list = c22.fit_transform(X)
 
         X_c22 = np.nan_to_num(np.array(c22_list, dtype=np.float32), False, 0, 0, 0)
