@@ -450,3 +450,6 @@ class DrCIF(BaseClassifier):
             np.nan_to_num(transformed_x, False, 0, 0, 0)
 
             return classifier.predict_proba(transformed_x)
+
+    def _get_train_probs(self, X):
+        return 0

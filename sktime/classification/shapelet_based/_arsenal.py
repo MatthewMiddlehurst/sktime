@@ -2,10 +2,13 @@
 """ RandOm Convolutional KErnel Transform (ROCKET)
 """
 
-__author__ = "Matthew Middlehurst"
+__author__ = ["Matthew Middlehurst", "Oleksii Kachaiev"]
 __all__ = ["Arsenal"]
 
 import numpy as np
+from joblib import Parallel, delayed
+from sklearn import clone
+from sklearn.ensemble._base import _set_random_states
 from sklearn.linear_model import RidgeClassifierCV
 from sklearn.pipeline import make_pipeline
 from sklearn.utils import check_random_state
@@ -13,6 +16,7 @@ from sklearn.utils.multiclass import class_distribution
 
 from sktime.classification.base import BaseClassifier
 from sktime.transformations.panel.rocket import Rocket
+from sktime.utils.validation import check_n_jobs
 from sktime.utils.validation.panel import check_X
 from sktime.utils.validation.panel import check_X_y
 
@@ -27,16 +31,15 @@ class Arsenal(BaseClassifier):
     ----------
     num_kernels             : int, number of kernels for ROCKET transform
     (default=2,000)
-    ensemble_size           : int, size of the ensemble (default=25)
-    n_jobs                  : int, optional (default=1)
-    The number of jobs to run in parallel for both `fit` and `predict`.
-    ``-1`` means using all processors.
+    n_estimators            : int, ensemble size, optional (default=25)
+    n_jobs                  : int, the number of jobs to run in parallel for both `fit`
+    and `predict`. ``-1`` means using all processors
     random_state            : int or None, seed for random, integer,
     optional (default to no seed)
 
     Attributes
     ----------
-    classifiers             : array of ROCKET classifiers
+    estimators_             : array of individual classifiers
     weights                 : weight of each classifier in the ensemble
     weight_sum              : sum of all weights
     n_classes               : extracted from the data
@@ -70,16 +73,16 @@ class Arsenal(BaseClassifier):
     def __init__(
         self,
         num_kernels=2000,
-        ensemble_size=25,
+        n_estimators=25,
         n_jobs=1,
         random_state=None,
     ):
         self.num_kernels = num_kernels
-        self.ensemble_size = ensemble_size
+        self.n_estimators = n_estimators
         self.n_jobs = n_jobs
         self.random_state = random_state
 
-        self.classifiers = []
+        self.estimators_ = []
 
         self.n_classes = 0
         self.classes_ = []
@@ -103,23 +106,21 @@ class Arsenal(BaseClassifier):
         self : object
         """
         X, y = check_X_y(X, y)
+        n_jobs = check_n_jobs(self.n_jobs)
 
         self.n_classes = np.unique(y).shape[0]
         self.classes_ = class_distribution(np.asarray(y).reshape(-1, 1))[0][0]
         for index, classVal in enumerate(self.classes_):
             self.class_dictionary[classVal] = index
 
-        for i in range(self.ensemble_size):
-            rocket_pipeline = make_pipeline(
-                Rocket(
-                    num_kernels=self.num_kernels,
-                    random_state=self.random_state,
-                    n_jobs=self.n_jobs,
-                ),
-                RidgeClassifierCV(alphas=np.logspace(-3, 3, 10), normalize=True),
+        for i in range(self.n_estimators):
+            base_estimator = _make_estimator(self.num_kernels, self.random_state)
+            self.estimators_ = Parallel(n_jobs=n_jobs)(
+                delayed(_fit_estimator)(
+                    _clone_estimator(base_estimator, self.random_state), X, y
+                )
+                for _ in range(self.n_estimators)
             )
-            rocket_pipeline.fit(X, y)
-            self.classifiers.append(rocket_pipeline)
 
         self._is_fitted = True
         return self
@@ -139,9 +140,33 @@ class Arsenal(BaseClassifier):
 
         sums = np.zeros((X.shape[0], self.n_classes))
 
-        for n, clf in enumerate(self.classifiers):
+        for n, clf in enumerate( self.estimators_):
             preds = clf.predict(X)
             for i in range(0, X.shape[0]):
                 sums[i, self.class_dictionary[preds[i]]] += 1
 
-        return sums / (np.ones(self.n_classes) * self.ensemble_size)
+        return sums / (np.ones(self.n_classes) * self.n_estimators)
+
+    def _get_train_probs(self, X):
+        return 0
+
+
+def _fit_estimator(estimator, X, y):
+    return estimator.fit(X, y)
+
+
+def _make_estimator(num_kernels, random_state):
+    return make_pipeline(
+        Rocket(num_kernels=num_kernels, random_state=random_state),
+        RidgeClassifierCV(alphas=np.logspace(-3, 3, 10), normalize=True),
+    )
+
+
+def _clone_estimator(base_estimator, random_state=None, idx=0):
+    estimator = clone(base_estimator)
+
+    if random_state is not None:
+        random_state = 255 if random_state == 0 else random_state
+        _set_random_states(estimator, random_state * 37 * (idx + 1))
+
+    return estimator
