@@ -83,6 +83,8 @@ class Arsenal(BaseClassifier):
         self.random_state = random_state
 
         self.estimators_ = []
+        self.weights = []
+        self.weight_sum = 0
 
         self.n_classes = 0
         self.classes_ = []
@@ -113,14 +115,17 @@ class Arsenal(BaseClassifier):
         for index, classVal in enumerate(self.classes_):
             self.class_dictionary[classVal] = index
 
-        for i in range(self.n_estimators):
-            base_estimator = _make_estimator(self.num_kernels, self.random_state)
-            self.estimators_ = Parallel(n_jobs=n_jobs)(
-                delayed(_fit_estimator)(
-                    _clone_estimator(base_estimator, self.random_state), X, y
-                )
-                for _ in range(self.n_estimators)
+        base_estimator = _make_estimator(self.num_kernels, self.random_state)
+        self.estimators_ = Parallel(n_jobs=n_jobs)(
+            delayed(_fit_estimator)(
+                _clone_estimator(base_estimator, self.random_state), X, y
             )
+            for _ in range(self.n_estimators)
+        )
+        for rocket_pipeline in self.estimators_:
+            weight = rocket_pipeline.steps[1][1].best_score_
+            self.weights.append(weight)
+            self.weight_sum += weight
 
         self._is_fitted = True
         return self
@@ -143,9 +148,9 @@ class Arsenal(BaseClassifier):
         for n, clf in enumerate( self.estimators_):
             preds = clf.predict(X)
             for i in range(0, X.shape[0]):
-                sums[i, self.class_dictionary[preds[i]]] += 1
+                sums[i, self.class_dictionary[preds[i]]] += self.weights[n]
 
-        return sums / (np.ones(self.n_classes) * self.n_estimators)
+        return sums / (np.ones(self.n_classes) * self.weight_sum)
 
     def _get_train_probs(self, X):
         return 0
