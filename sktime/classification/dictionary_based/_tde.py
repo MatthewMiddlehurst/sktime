@@ -319,9 +319,7 @@ class TemporalDictionaryEnsemble(BaseClassifier):
             for i in range(0, X.shape[0]):
                 sums[i, self.class_dictionary[preds[i]]] += self.weights[n]
 
-        dists = sums / (np.ones(self.n_classes) * self.weight_sum)
-
-        return dists
+        return sums / (np.ones(self.n_classes) * self.weight_sum)
 
     def _worst_ensemble_acc(self):
         min_acc = 1.0
