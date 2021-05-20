@@ -15,9 +15,9 @@ from sklearn.utils.multiclass import class_distribution
 
 from sktime.classification.base import BaseClassifier
 from sktime.classification.dictionary_based import TemporalDictionaryEnsemble
-from sktime.classification.distance_based import ProximityForest
 from sktime.classification.interval_based._drcif import DrCIF
-from sktime.classification.shapelet_based import ShapeletTransformClassifier, Arsenal
+from sktime.classification.kernel_based import Arsenal
+from sktime.classification.shapelet_based import ShapeletTransformClassifier
 from sktime.utils.validation.panel import check_X_y, check_X
 
 
@@ -61,7 +61,6 @@ class HIVECOTEV2(BaseClassifier):
 
     def __init__(
         self,
-        pf_params=None,
         stc_params=None,
         drcif_params=None,
         arsenal_params=None,
@@ -70,8 +69,6 @@ class HIVECOTEV2(BaseClassifier):
         n_jobs=1,
         random_state=None,
     ):
-        if pf_params is None:
-            pf_params = {}
         if stc_params is None:
             stc_params = {"time_contract_in_mins": 60}
         if drcif_params is None:
@@ -81,7 +78,6 @@ class HIVECOTEV2(BaseClassifier):
         if tde_params is None:
             tde_params = {}
 
-        self.pf_params = pf_params
         self.stc_params = stc_params
         self.drcif_params = drcif_params
         self.arsenal_params = arsenal_params
@@ -91,13 +87,11 @@ class HIVECOTEV2(BaseClassifier):
         self.n_jobs = n_jobs
         self.random_state = random_state
 
-        self.pf = None
         self.stc = None
         self.drcif = None
         self.arsenal = None
         self.tde = None
 
-        self.pf_weight = 0
         self.stc_weight = 0
         self.drcif_weight = 0
         self.arsenal_weight = 0
@@ -119,32 +113,6 @@ class HIVECOTEV2(BaseClassifier):
         min_class = np.min(counts)
         if min_class < cv_size:
             cv_size = min_class
-
-        self.pf = ProximityForest(
-            **self.pf_params,
-            random_state=self.random_state,
-            n_jobs=self.n_jobs,
-        )
-        self.pf.fit(X, y)
-
-        if self.verbose > 0:
-            print("PF ", datetime.now().strftime("%H:%M:%S %d/%m/%Y"))  # noqa
-
-        train_preds = cross_val_predict(
-            ProximityForest(**self.pf_params, random_state=self.random_state),
-            X=X,
-            y=y,
-            cv=cv_size,
-            n_jobs=self.n_jobs,
-        )
-        self.pf_weight = accuracy_score(y, train_preds) ** 4
-
-        if self.verbose > 0:
-            print(  # noqa
-                "PF train estimate ",
-                datetime.now().strftime("%H:%M:%S %d/%m/%Y"),
-            )
-            print("PF weight = " + str(self.pf_weight))  # noqa
 
         self.stc = ShapeletTransformClassifier(
             **self.stc_params,
@@ -261,11 +229,6 @@ class HIVECOTEV2(BaseClassifier):
         X = check_X(X, enforce_univariate=True)
 
         dists = np.zeros((X.shape[0], self.n_classes))
-
-        dists = np.add(
-            dists,
-            self.pf.predict_proba(X) * (np.ones(self.n_classes) * self.pf_weight),
-        )
         dists = np.add(
             dists,
             self.stc.predict_proba(X) * (np.ones(self.n_classes) * self.stc_weight),

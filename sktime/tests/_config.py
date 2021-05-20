@@ -90,6 +90,7 @@ from sktime.transformations.series.boxcox import BoxCoxTransformer
 EXCLUDE_ESTIMATORS = [
     "ShapeDTW",
     "HIVECOTEV1",
+    "HIVECOTEV2",
     "ElasticEnsemble",
     "ProximityForest",
     "ProximityStump",
