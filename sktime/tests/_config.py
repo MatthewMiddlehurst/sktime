@@ -12,6 +12,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import StandardScaler
+from sktime.classification.hybrid import HIVECOTEV1
+from sktime.classification.hybrid import HIVECOTEV2
 from sktime.forecasting.fbprophet import Prophet
 from sktime.base import BaseEstimator
 from sktime.classification.base import BaseClassifier
@@ -20,8 +22,8 @@ from sktime.classification.compose import ComposableTimeSeriesForestClassifier
 from sktime.classification.dictionary_based import ContractableBOSS
 from sktime.classification.dictionary_based import TemporalDictionaryEnsemble
 from sktime.classification.interval_based import RandomIntervalSpectralForest
-from sktime.classification.interval_based._cif import CanonicalIntervalForest
-from sktime.classification.interval_based._drcif import DrCIF
+from sktime.classification.interval_based import CanonicalIntervalForest
+from sktime.classification.interval_based import DrCIF
 from sktime.classification.interval_based import TimeSeriesForestClassifier as TSFC
 from sktime.classification.interval_based import SupervisedTimeSeriesForest
 from sktime.classification.kernel_based import ROCKETClassifier
@@ -89,8 +91,6 @@ from sktime.transformations.series.boxcox import BoxCoxTransformer
 # What do they fail? ShapeDTW fails on 3d_numpy_input test, not set up for that
 EXCLUDE_ESTIMATORS = [
     "ShapeDTW",
-    "HIVECOTEV1",
-    "HIVECOTEV2",
     "ElasticEnsemble",
     "ProximityForest",
     "ProximityStump",
@@ -100,6 +100,8 @@ EXCLUDE_ESTIMATORS = [
 EXCLUDED_TESTS = {
     "ShapeletTransformClassifier": ["check_fit_idempotent"],
     "ContractedShapeletTransform": ["check_fit_idempotent"],
+    "HIVECOTEV1": ["check_fit_idempotent", "check_multiprocessing_idempotent"],
+    "HIVECOTEV2": ["check_fit_idempotent", "check_multiprocessing_idempotent"],
 }
 
 # We here configure estimators for basic unit testing, including setting of
@@ -205,8 +207,11 @@ ESTIMATOR_TEST_PARAMS = {
         ],
         "selected_forecaster": "Naive_mean",
     },
-    ShapeletTransformClassifier: {"n_estimators": 3, "transform_contract_in_mins": 0.125},
-    ContractedShapeletTransform: {"time_contract_in_mins": 0.125},
+    ShapeletTransformClassifier: {
+        "n_estimators": 3,
+        "transform_contract_in_mins": 0.075,
+    },
+    ContractedShapeletTransform: {"time_contract_in_mins": 0.075},
     ShapeletTransform: {
         "max_shapelets_to_store_per_class": 1,
         "min_shapelet_length": 3,
@@ -214,6 +219,22 @@ ESTIMATOR_TEST_PARAMS = {
     },
     ROCKETClassifier: {"num_kernels": 100},
     Arsenal: {"num_kernels": 100},
+    HIVECOTEV1: {
+        "stc_params": {"n_estimators": 2, "transform_contract_in_mins": 0.025},
+        "tsf_params": {"n_estimators": 2},
+        "rise_params": {"n_estimators": 2},
+        "cboss_params": {"n_parameter_samples": 6, "max_ensemble_size": 2},
+    },
+    HIVECOTEV2: {
+        "stc_params": {"n_estimators": 2, "transform_contract_in_mins": 0.025},
+        "drcif_params": {"n_estimators": 2},
+        "arsenal_params": {"num_kernels": 100},
+        "tde_params": {
+            "n_parameter_samples": 6,
+            "max_ensemble_size": 2,
+            "randomly_selected_params": 3,
+        },
+    },
     TSFreshFeatureExtractor: {"disable_progressbar": True, "show_warnings": False},
     TSFreshRelevantFeatureExtractor: {
         "disable_progressbar": True,

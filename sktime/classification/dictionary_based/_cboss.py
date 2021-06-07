@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-""" ContractableBOSS classifier
-dictionary based cBOSS classifier based on SFA transform. Improves the
+"""ContractableBOSS classifier.
+
+Dictionary based cBOSS classifier based on SFA transform. Improves the
 ensemble structure of the original BOSS algorithm.
 """
 
@@ -21,8 +22,9 @@ from sktime.utils.validation.panel import check_X_y
 
 
 class ContractableBOSS(BaseClassifier):
-    """Contractable Bag of SFA Symbols (cBOSS)
-    implementation of BOSS from [1] with refinements described in [2]
+    """Contractable Bag of SFA Symbols (cBOSS).
+
+    implementation of BOSS from [1] with refinements described in [2].
 
     Overview: Input n series length m
     cBOSS randomly samples n_parameter_samples parameter sets, evaluating
@@ -41,8 +43,6 @@ class ContractableBOSS(BaseClassifier):
     series is formed and stored. fit involves finding n histograms.
 
     predict uses 1 nearest neighbour with a bespoke distance function.
-
-
 
     Parameters
     ----------
@@ -90,7 +90,6 @@ class ContractableBOSS(BaseClassifier):
     For the Java version, see
     https://github.com/uea-machine-learning/tsml/blob/master/src/
     main/java/tsml/classifiers/dictionary_based/cBOSS.java
-
     """
 
     # Capability tags
@@ -137,7 +136,9 @@ class ContractableBOSS(BaseClassifier):
         super(ContractableBOSS, self).__init__()
 
     def fit(self, X, y):
-        """Build an ensemble of BOSS classifiers from the training set (X,
+        """Fit a c-boss ensemble on cases (X,y), where y is the target variable.
+
+        Build an ensemble of BOSS classifiers from the training set (X,
         y), through randomising over the para space to make a fixed size
         ensemble of the best.
 
@@ -193,7 +194,7 @@ class ContractableBOSS(BaseClassifier):
             self.n_parameter_samples = 0
 
         while (
-                train_time < time_limit or num_classifiers < self.n_parameter_samples
+            train_time < time_limit or num_classifiers < self.n_parameter_samples
         ) and len(possible_parameters) > 0:
             parameters = possible_parameters.pop(
                 rng.randint(0, len(possible_parameters))
@@ -240,6 +241,16 @@ class ContractableBOSS(BaseClassifier):
         return self
 
     def predict(self, X):
+        """Predict class values of n instances in X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame of shape [n, 1]
+
+        Returns
+        -------
+        array of shape [n, 1]
+        """
         rng = check_random_state(self.random_state)
         return np.array(
             [
@@ -249,6 +260,16 @@ class ContractableBOSS(BaseClassifier):
         )
 
     def predict_proba(self, X):
+        """Predict class probabilities for n instances in X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame of shape [n, 1]
+
+        Returns
+        -------
+        array of shape [n, self.n_classes]
+        """
         self.check_is_fitted()
         X = check_X(X, enforce_univariate=True, coerce_to_numpy=True)
 

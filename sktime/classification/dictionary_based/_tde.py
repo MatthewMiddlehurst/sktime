@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-""" TDE classifiers
-dictionary based TDE classifiers based on SFA transform. Contains a single
+"""TDE classifiers.
+
+Dictionary based TDE classifiers based on SFA transform. Contains a single
 IndividualTDE and TDE.
 """
 
@@ -170,10 +171,11 @@ class TemporalDictionaryEnsemble(BaseClassifier):
         super(TemporalDictionaryEnsemble, self).__init__()
 
     def fit(self, X, y):
-        """Build an ensemble of individual TDE classifiers from the training
-        set (X,y), through randomising over the parameter space to a set
-        number of times then selecting new parameters using Gaussian
-        processes
+        """Build an ensemble of individual TDE classifiers.
+
+         Using the training set (X,y), through randomising over the parameter space
+         to a set number of times then selecting new parameters using Gaussian
+        processes.
 
         Parameters
         ----------
@@ -239,7 +241,7 @@ class TemporalDictionaryEnsemble(BaseClassifier):
 
         # use time limit or n_parameter_samples if limit is 0
         while (
-                train_time < time_limit or num_classifiers < self.n_parameter_samples
+            train_time < time_limit or num_classifiers < self.n_parameter_samples
         ) and len(possible_parameters) > 0:
             if num_classifiers < self.randomly_selected_params:
                 parameters = possible_parameters.pop(
@@ -272,7 +274,10 @@ class TemporalDictionaryEnsemble(BaseClassifier):
             tde.subsample = subsample
 
             tde.accuracy = self._individual_train_acc(
-                tde, y_subsample, subsample_size, -999999 if num_classifiers < self.max_ensemble_size else lowest_acc
+                tde,
+                y_subsample,
+                subsample_size,
+                -999999 if num_classifiers < self.max_ensemble_size else lowest_acc,
             )
             weight = math.pow(tde.accuracy, 4)
 
@@ -300,6 +305,16 @@ class TemporalDictionaryEnsemble(BaseClassifier):
         return self
 
     def predict(self, X):
+        """Predict class values of n instances in X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame of shape [n, 1]
+
+        Returns
+        -------
+        array of shape [n, 1]
+        """
         rng = check_random_state(self.random_state)
         return np.array(
             [
@@ -309,6 +324,16 @@ class TemporalDictionaryEnsemble(BaseClassifier):
         )
 
     def predict_proba(self, X):
+        """Predict class probabilities for n instances in X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame of shape [n, 1]
+
+        Returns
+        -------
+        array of shape [n, self.n_classes]
+        """
         self.check_is_fitted()
         X = check_X(X, coerce_to_numpy=True)
 
@@ -430,7 +455,7 @@ class TemporalDictionaryEnsemble(BaseClassifier):
 
 
 class IndividualTDE(BaseClassifier):
-    """Single TDE classifier, based off the Bag of SFA Symbols (BOSS) model"""
+    """Single TDE classifier, based off the Bag of SFA Symbols (BOSS) model."""
 
     def __init__(
         self,
@@ -478,6 +503,18 @@ class IndividualTDE(BaseClassifier):
         super(IndividualTDE, self).__init__()
 
     def fit(self, X, y):
+        """Fit a single TD classifier on n_instances cases (X,y).
+
+        Parameters
+        ----------
+        X : pd.DataFrame of shape [n_instances, 1]
+            Nested dataframe with univariate time-series in cells.
+        y : array-like, shape = [n_instances] The class labels.
+
+        Returns
+        -------
+        self : object
+        """
         X, y = check_X_y(X, y, coerce_to_numpy=True)
 
         self.n_instances, self.n_dims, self.series_length = X.shape
@@ -525,6 +562,16 @@ class IndividualTDE(BaseClassifier):
         return self
 
     def predict(self, X):
+        """Predict class values of n instances in X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame of shape [n, 1]
+
+        Returns
+        -------
+        array of shape [n, 1]
+        """
         self.check_is_fitted()
         X = check_X(X, coerce_to_numpy=True)
         num_cases = X.shape[0]
@@ -556,6 +603,16 @@ class IndividualTDE(BaseClassifier):
         return np.array(classes)
 
     def predict_proba(self, X):
+        """Predict class probabilities for n instances in X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame of shape [n, 1]
+
+        Returns
+        -------
+        array of shape [n, self.n_classes]
+        """
         preds = self.predict(X)
         dists = np.zeros((X.shape[0], self.num_classes))
 
@@ -662,6 +719,10 @@ class IndividualTDE(BaseClassifier):
 
 
 def histogram_intersection(first, second):
+    """Histogram intersection between two instannces.
+
+    Passed either dictionaries on numpy arrays.
+    """
     sim = 0
 
     if isinstance(first, dict):
