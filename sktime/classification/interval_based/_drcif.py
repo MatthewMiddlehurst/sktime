@@ -14,11 +14,10 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import check_random_state
 from sklearn.utils.multiclass import class_distribution
 
-from sktime.classification.interval_based.vector import (
-    ContinuousIntervalTree,
-)
-from sktime.classification.interval_based.vector._continuous_interval_tree import (
+
+from sktime.contrib._continuous_interval_tree import (
     _drcif_feature,
+    ContinuousIntervalTree,
 )
 from sktime.transformations.panel.catch22 import Catch22
 from sktime.utils.validation.panel import check_X, check_X_y
@@ -43,13 +42,13 @@ class DrCIF(BaseClassifier):
     ensemble the trees with averaged probability estimates
 
     This implementation deviates from the original in minor ways. Predictions
-    are made using summed probabilites instead of majority vote
+    are made using summed probabilities instead of majority vote
     and it does not use the splitting criteria tiny refinement described in
-    deng13forest.
+    deng13forest by default.
 
     Parameters
     ----------
-    n_estimators       : int, ensemble size, optional (default to 500)
+    n_estimators       : int, ensemble size, optional (default to 200)
     n_intervals        : int or size 3 list, number of intervals to extract per
     representation, optional (default to 4 + (sqrt(representation_length)*sqrt(n_dims))
     / 3)
@@ -140,15 +139,13 @@ class DrCIF(BaseClassifier):
     def fit(self, X, y):
         """Build a forest of trees from the training set (X, y).
 
-         Uses random intervals and catch22/tsf summary features
+         Uses random intervals and catch22/basic summary features
 
         Parameters
         ----------
-        X : array-like or sparse matrix of shape = [n_instances,
+        X : array-like or sparse matrix of shape = [n_instances,n_dimensions,
         series_length] or shape = [n_instances,series_length]
-            The training input samples.  If a Pandas data frame is passed it
-            must have a single column (i.e. univariate
-            classification).
+        The training input samples.
         y : array-like, shape =  [n_instances]    The class labels.
 
         Returns
@@ -161,10 +158,10 @@ class DrCIF(BaseClassifier):
         self.n_classes = np.unique(y).shape[0]
         self.classes_ = class_distribution(np.asarray(y).reshape(-1, 1))[0][0]
 
-        if self.base_estimator is None or self.base_estimator == "CIT":
-            self.tree = ContinuousIntervalTree()
-        elif self.base_estimator == "DTC":
+        if self.base_estimator is None or self.base_estimator == "DTC":
             self.tree = DecisionTreeClassifier(criterion="entropy")
+        elif self.base_estimator == "CIT":
+            self.tree = ContinuousIntervalTree()
         elif isinstance(self.base_estimator, BaseEstimator):
             self.tree = self.base_estimator
         else:
@@ -268,11 +265,8 @@ class DrCIF(BaseClassifier):
 
         Parameters
         ----------
-        X : The training input samples. array-like or pandas data frame.
-        If a Pandas data frame is passed, a check is performed that it only
-        has one column.
-        If not, an exception is thrown, since this classifier does not yet have
-        multivariate capability.
+        X : The training input samples. array-like or sparse matrix of shape
+        = [n_test_instances,n_dimensions,series_length]
 
         Returns
         -------
@@ -292,12 +286,7 @@ class DrCIF(BaseClassifier):
         Parameters
         ----------
         X : The training input samples. array-like or sparse matrix of shape
-        = [n_test_instances, series_length]
-            If a Pandas data frame is passed (sktime format) a check is
-            performed that it only has one column.
-            If not, an exception is thrown, since this classifier does not
-            yet have
-            multivariate capability.
+        = [n_test_instances,n_dimensions,series_length]
 
         Local variables
         ----------
@@ -415,6 +404,7 @@ class DrCIF(BaseClassifier):
         tree = clone(self.tree)
         tree.set_params(random_state=rs)
         transformed_x = transformed_x.T
+        transformed_x = transformed_x.round(8)
         transformed_x = np.nan_to_num(transformed_x, False, 0, 0, 0)
         tree.fit(transformed_x, y)
 
@@ -424,7 +414,7 @@ class DrCIF(BaseClassifier):
         self, X, X_p, X_d, classifier, intervals, dims, atts
     ):
         c22 = Catch22(outlier_norm=True)
-        if self.tree is ContinuousIntervalTree:
+        if isinstance(self.tree, ContinuousIntervalTree):
             return classifier.predict_proba_drcif(
                 X, X_p, X_d, c22, self.__n_intervals, intervals, dims, atts
             )
@@ -448,9 +438,7 @@ class DrCIF(BaseClassifier):
                     j += 1
 
             transformed_x = transformed_x.T
+            transformed_x.round(8)
             np.nan_to_num(transformed_x, False, 0, 0, 0)
 
             return classifier.predict_proba(transformed_x)
-
-    def _get_train_probs(self, X):
-        return 0
