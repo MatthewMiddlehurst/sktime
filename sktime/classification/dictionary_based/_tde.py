@@ -189,6 +189,12 @@ class TemporalDictionaryEnsemble(BaseClassifier):
         """
         X, y = check_X_y(X, y, coerce_to_numpy=True)
 
+        if self.n_parameter_samples <= self.randomly_selected_params:
+            print( # noqa
+                "TDE Warning: n_parameter_samples <= randomly_selected_params, ",
+                "ensemble member parameters will be fully randomly selected.",
+            )
+
         time_limit = self.time_limit_in_minutes * 60
         self.n_instances, self.n_dims, self.series_length = X.shape
         self.n_classes = np.unique(y).shape[0]

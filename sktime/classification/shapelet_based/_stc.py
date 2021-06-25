@@ -27,8 +27,8 @@ class ShapeletTransformClassifier(BaseClassifier):
     Parameters
     ----------
     transform_contract_in_mins : int, search time for shapelets, optional
-    (default = 300)
-    n_estimators               :       500,
+    (default = 60)
+    n_estimators               :       200,
     random_state               :  int, seed for random, optional (default = none)
 
     Attributes
@@ -61,7 +61,7 @@ class ShapeletTransformClassifier(BaseClassifier):
     }
 
     def __init__(
-        self, transform_contract_in_mins=60, n_estimators=500, random_state=None
+        self, transform_contract_in_mins=60, n_estimators=200, random_state=None
     ):
         self.transform_contract_in_mins = transform_contract_in_mins
         self.n_estimators = n_estimators

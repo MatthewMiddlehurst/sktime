@@ -183,8 +183,13 @@ class SupervisedTimeSeriesForest(ForestClassifier, BaseClassifier):
         -------
         output : array of shape = [n_test_instances]
         """
-        proba = self.predict_proba(X)
-        return np.asarray([self.classes_[np.argmax(prob)] for prob in proba])
+        rng = check_random_state(self.random_state)
+        return np.array(
+            [
+                self.classes_[int(rng.choice(np.flatnonzero(prob == prob.max())))]
+                for prob in self.predict_proba(X)
+            ]
+        )
 
     def predict_proba(self, X):
         """Find probability estimates for each class for all cases in X.

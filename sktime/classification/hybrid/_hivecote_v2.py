@@ -70,9 +70,9 @@ class HIVECOTEV2(BaseClassifier):
         random_state=None,
     ):
         if stc_params is None:
-            stc_params = {"time_contract_in_mins": 60}
+            stc_params = {"n_estimators": 500}
         if drcif_params is None:
-            drcif_params = {}
+            drcif_params = {"n_estimators": 500}
         if arsenal_params is None:
             arsenal_params = {}
         if tde_params is None:
@@ -103,6 +103,18 @@ class HIVECOTEV2(BaseClassifier):
         super(HIVECOTEV2, self).__init__()
 
     def fit(self, X, y):
+        """Fit a HIVE-COTEv1.0 classifier.
+
+        Parameters
+        ----------
+        X : nested pandas DataFrame of shape [n_instances, 1]
+            Nested dataframe with univariate time-series in cells.
+        y : array-like, shape = [n_instances] The class labels.
+
+        Returns
+        -------
+        self : object
+        """
         X, y = check_X_y(X, y, enforce_univariate=True)
 
         self.n_classes = np.unique(y).shape[0]
@@ -216,6 +228,16 @@ class HIVECOTEV2(BaseClassifier):
         return self
 
     def predict(self, X):
+        """Make predictions for all cases in X.
+
+        Parameters
+        ----------
+        X : The testing input samples of shape [n_instances,1].
+
+        Returns
+        -------
+        output : numpy array of shape = [n_instances]
+        """
         rng = check_random_state(self.random_state)
         return np.array(
             [
@@ -225,6 +247,17 @@ class HIVECOTEV2(BaseClassifier):
         )
 
     def predict_proba(self, X):
+        """Make class probability estimates on each case in X.
+
+        Parameters
+        ----------
+        X - pandas dataframe of testing data of shape [n_instances,1].
+
+        Returns
+        -------
+        output : numpy array of shape =
+                [n_instances, num_classes] of probabilities
+        """
         self.check_is_fitted()
         X = check_X(X, enforce_univariate=True)
 
