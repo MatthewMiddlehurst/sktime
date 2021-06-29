@@ -85,6 +85,7 @@ from sktime.transformations.series.impute import Imputer
 from sktime.transformations.series.compose import OptionalPassthrough
 from sktime.transformations.series.outlier_detection import HampelFilter
 from sktime.transformations.series.boxcox import BoxCoxTransformer
+from sktime.clustering.base.base import BaseCluster
 
 
 # The following estimators currently do not pass all unit tests
@@ -298,6 +299,8 @@ VALID_ESTIMATOR_TAGS = (
     "handles-missing-data",
     "skip-inverse-transform",
     "requires-fh-in-fit",
+    "X-y-must-have-same-index",
+    "enforce-index-type",
 )
 
 # These methods should not change the state of the estimator, that is, they should
@@ -323,6 +326,7 @@ VALID_ESTIMATOR_BASE_TYPES = (
     BaseRegressor,
     BaseForecaster,
     BaseTransformer,
+    BaseCluster,
 )
 VALID_ESTIMATOR_TYPES = (
     BaseEstimator,
@@ -335,4 +339,5 @@ VALID_ESTIMATOR_BASE_TYPE_LOOKUP = {
     "regressor": BaseRegressor,
     "forecaster": BaseForecaster,
     "transformer": BaseTransformer,
+    "clustering": BaseCluster,
 }
