@@ -128,7 +128,6 @@ class SFA(_PanelToPanelTransformer):
         offset = 2 if norm else 0
         self.word_length = min(word_length, window_size - offset)
         self.dft_length = window_size - offset if anova is True else self.word_length
-
         # make dft_length an even number (same number of reals and imags)
         self.dft_length = self.dft_length + self.dft_length % 2
 
@@ -150,16 +149,11 @@ class SFA(_PanelToPanelTransformer):
         self.save_binning_dft = save_binning_dft
         self.binning_dft = None
 
-        #
         self.binning_method = binning_method
         self.anova = anova
 
         self.bigrams = bigrams
         self.skip_grams = skip_grams
-
-        # weighting for levels going up to 10 levels
-        # No real reason to go past 3, should probably not weight with too many.
-        self.level_weights = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512] #todo
 
         self.n_instances = 0
         self.series_length = 0
@@ -184,6 +178,7 @@ class SFA(_PanelToPanelTransformer):
         self: object
         """
 
+        # todo look at removing 2nd part
         if self.alphabet_size < 2 or self.alphabet_size > 4:
             raise ValueError("Alphabet size must be an integer between 2 and 4")
 
@@ -201,6 +196,14 @@ class SFA(_PanelToPanelTransformer):
 
         X = check_X(X, enforce_univariate=True, coerce_to_numpy=True)
         X = X.squeeze(1)
+
+        self.letter_bits = math.ceil(math.log2(self.alphabet_size))
+
+        if self.levels > 1:
+            quadrants = 0
+            for i in range(self.levels):
+                quadrants += pow(2, i)
+            self.level_bits = math.ceil(math.log2(quadrants))
 
         self.n_instances, self.series_length = X.shape
         self.breakpoints = self._binning(X, y)
@@ -322,13 +325,15 @@ class SFA(_PanelToPanelTransformer):
         length = start + self.dft_length
         dft = np.empty((length,), dtype=reals.dtype)
         dft[0::2] = reals[: np.uint32(length / 2)]
-        dft[1::2] = imags[: np.uint32(length / 2)] #* -1  # lower bounding #todo
+        dft[1::2] = imags[: np.uint32(length / 2)]
+        if not self.lower_bounding:
+            dft[1::2] = dft[1::2] * -1  # lower bounding
         dft *= self.inverse_sqrt_win_size / std
         return dft[start:]
 
     def _mcb(self, dft):
         num_windows_per_inst = np.ceil(self.series_length / self.window_size)
-        total_num_windows = self.n_instances * num_windows_per_inst
+        total_num_windows = int(self.n_instances * num_windows_per_inst)
         breakpoints = np.zeros((self.word_length, self.alphabet_size))
 
         for letter in range(self.word_length):
@@ -375,7 +380,7 @@ class SFA(_PanelToPanelTransformer):
 
     def _igb(self, dft, y):
         num_windows_per_inst = math.ceil(self.series_length / self.window_size)
-        total_num_windows = self.n_instances * num_windows_per_inst
+        total_num_windows = int(self.n_instances * num_windows_per_inst)
         breakpoints = np.zeros((self.word_length, self.alphabet_size))
 
         for letter in range(self.word_length):
@@ -489,7 +494,7 @@ class SFA(_PanelToPanelTransformer):
 
         for window in range(dfts.shape[0]):
             word_raw = SFA._create_word(
-                dfts[window], self.word_length, self.alphabet_size, self.breakpoints
+                dfts[window], self.word_length, self.alphabet_size, self.breakpoints, self.letter_bits
             )
             words[window] = word_raw
 
@@ -498,7 +503,7 @@ class SFA(_PanelToPanelTransformer):
                     bag, word_raw, last_word, window - int(repeat_words / 2)
                 )
                 if self.levels > 1
-                else self._add_to_bag(bag, word_raw, last_word, window)
+                else self._add_to_bag(bag, word_raw, last_word)
             )
 
             if repeat_word:
@@ -509,31 +514,33 @@ class SFA(_PanelToPanelTransformer):
 
             if self.bigrams:
                 if window - self.window_size >= 0:
-                    bigram = self._create_bigram_word(
+                    bigram = SFA._create_bigram_word(
                         words[window - self.window_size],
                         word_raw,
+                        self.letter_bits,
                         self.word_length,
                     )
 
                     if self.levels > 1:
-                        bigram = (bigram, 0) #todo
+                        bigram = (bigram << self.level_bits) | 0
                     bag[bigram] += 1
 
             if self.skip_grams:
                 # creates skip-grams, skipping every (s-1)-th word in-between
                 for s in range(2, 4):
                     if window - s * self.window_size >= 0:
-                        skip_gram = self._create_bigram_word(
+                        skip_gram = SFA._create_bigram_word(
                             words[window - s * self.window_size],
                             word_raw,
+                            self.letter_bits,
                             self.word_length,
                         )
 
                         if self.levels > 1:
-                            skip_gram = (skip_gram, 0)
+                            skip_gram = (skip_gram << self.level_bits) | 0
                         bag[skip_gram] += 1
 
-        print(bag)
+        # print(bag)
 
         return [
             pd.Series(bag) if self.return_pandas_data_series else bag,
@@ -586,8 +593,8 @@ class SFA(_PanelToPanelTransformer):
             self.inverse_sqrt_win_size,
         )
 
-        # lower bounding
-        transformed[:, 1::2] = transformed[:, 1::2] * -1
+        if not self.lower_bounding:
+            transformed[:, 1::2] = transformed[:, 1::2] * -1  # lower bounding
 
         return (
             transformed[:, start_offset:][:, self.support]
@@ -637,7 +644,7 @@ class SFA(_PanelToPanelTransformer):
 
         return stds
 
-    def _add_to_bag(self, bag, word, last_word, offset):
+    def _add_to_bag(self, bag, word, last_word):
         if self.remove_repeat_words and word == last_word:
             return False
 
@@ -657,8 +664,7 @@ class SFA(_PanelToPanelTransformer):
             pos = window_ind + int((self.window_size / 2))
             quadrant = start + int(pos / quadrant_size)
 
-            bag[word << 4 | quadrant] += self.level_weights[i] #todo
-
+            bag[word << self.level_bits | quadrant] += num_quadrants
             start += num_quadrants
 
         return True
@@ -674,22 +680,24 @@ class SFA(_PanelToPanelTransformer):
 
     @staticmethod
     @njit(fastmath=True, cache=True)
-    def _create_word(dft, word_length, alphabet_size, breakpoints):
+    def _create_word(dft, word_length, alphabet_size, breakpoints, letter_bits):
         word = np.int64(0)
         for i in range(word_length):
             for bp in range(alphabet_size):
                 if dft[i] <= breakpoints[i][bp]:
-                    word = (word << 2) | bp
+                    word = (word << letter_bits) | bp
                     break
 
         return word
 
     @staticmethod
     @njit(fastmath=True, cache=True)
-    def _create_bigram_word(word, other_word, length):
-        return (word << (2 * length)) | other_word
+    def _create_bigram_word(word, other_word, letter_bits, word_len):
+        bigram = (word << 1) | 1
+        return (bigram << (letter_bits * word_len)) | other_word
 
     # TODO merge with transform???
+    # todo works with levels and bigrams??
     # assumes saved words are of word length 'max_word_length'.
     def _shorten_bags(self, word_len):
         new_bags = pd.DataFrame() if self.return_pandas_data_series else [None]
@@ -713,7 +721,7 @@ class SFA(_PanelToPanelTransformer):
                         bag, new_word, last_word, window - int(repeat_words / 2)
                     )
                     if self.levels > 1
-                    else self._add_to_bag(bag, new_word, last_word, window)
+                    else self._add_to_bag(bag, new_word, last_word)
                 )
 
                 if repeat_word:
@@ -724,17 +732,18 @@ class SFA(_PanelToPanelTransformer):
 
                 if self.bigrams:
                     if window - self.window_size >= 0 and window > 0:
-                        bigram = self._create_bigram_word(
+                        bigram = SFA._create_bigram_word(
                             self.shorten_word(
                                 self.words[i][window - self.window_size],
                                 self.word_length - word_len,
                             ),
                             new_word,
+                            self.letter_bits,
                             self.word_length,
                         )
 
                         if self.levels > 1:
-                            bigram = (bigram, 0) #todo
+                            bigram = (bigram << self.level_bits) | 0
                         bag[bigram] += 1
 
             dim.append(pd.Series(bag) if self.return_pandas_data_series else bag)
@@ -743,22 +752,23 @@ class SFA(_PanelToPanelTransformer):
 
         return new_bags
 
-    @classmethod
-    def shorten_word(cls, word, amount):
+    def shorten_word(self, word, amount):
         # shorten a word by set amount of letters
-        return cls.right_shift(word, amount * 2)
+        return self.right_shift(word, amount * self.alphabet_size)
 
-    @classmethod
-    def word_list(cls, word, length):
+    def word_list(self, word):
         # list of input integers to obtain current word
-        word_list = []
-        shift = 32 - (length * 2)
+        letters = []
+        shift = 32 - (self.word_length * self.letter_bits)
 
-        for _ in range(length - 1, -1, -1):
-            word_list.append(cls.right_shift(word << shift, 32 - 2))
-            shift += 2
+        if self.levels > 1:
+            quadrant = self.right_shift(word << shift, 32 - self.letter_bits)
 
-        return word_list
+        for _ in range(self.word_length - 1, -1, -1):
+            letters.append(self.right_shift(word << shift, 32 - self.letter_bits))
+            shift += self.letter_bits
+
+        return letters
 
     @staticmethod
     @njit(fastmath=True, cache=True)
@@ -781,3 +791,17 @@ sfa = SFA(
 )
 sfa.fit(X_train, y_train)
 sfa.transform(X_train)
+
+
+print(sfa.letter_bits)
+print(sfa.level_bits)
+#(12972995676, 0)
+#49488: 1, 49489: 2, 53328: 3,
+
+print(bin(49489))
+print(int('001100000101010001', 2))
+#49489 = 00 00 00 11 00 00 01 01 01 00 + 01
+#        00 00 00 11 00 00 01 01 01 00 00 00 00 11 01 00 01 01 11 00 + 00
+
+print(bin(12972995676))
+print(bin((12972995676 << 0 | 0)))
